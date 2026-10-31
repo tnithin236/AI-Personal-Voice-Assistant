@@ -1,0 +1,17 @@
+# Install torch (CPU build) FIRST - scripts\setup.ps1 does this for you.
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic-settings
+httpx
+faster-whisper
+sounddevice
+numpy
+piper-tts
+qdrant-client
+sentence-transformers
+pymupdf
+pyautogui
+ddgs
+psutil
+nvidia-ml-py

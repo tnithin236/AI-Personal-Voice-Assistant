@@ -1,0 +1,10 @@
+.venv/
+.venv-tamil/
+__pycache__/
+*.pyc
+.env
+node_modules/
+dist/
+data/*/*
+!data/*/.gitkeep
+*.log

@@ -1,0 +1,582 @@
+{
+  "info": {
+    "name": "Vaani API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base",
+      "value": "http://127.0.0.1:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/health",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "System (RAM/VRAM)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/system",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "system"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get settings",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/settings",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "settings"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update settings",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/settings",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "settings"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"values\": {\n    \"language\": \"auto\",\n    \"temperature\": 0.5\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "Ollama models",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/llm/models",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "llm",
+            "models"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/chat",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Hello, who are you?\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Chat (calculator tool)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/chat",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"What is 15% of 2480?\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Chat (Tamil)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/chat",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"\\u0bb5\\u0ba3\\u0b95\\u0bcd\\u0b95\\u0bae\\u0bcd, \\u0b8e\\u0baa\\u0bcd\\u0baa\\u0b9f\\u0bbf \\u0b87\\u0bb0\\u0bc1\\u0b95\\u0bcd\\u0b95\\u0bbf\\u0bb1\\u0bc0\\u0bb0\\u0bcd\\u0b95\\u0bb3\\u0bcd?\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Regenerate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/chat/regenerate",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "chat",
+            "regenerate"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"<id from chat>\"\n}"
+        }
+      }
+    },
+    {
+      "name": "List conversations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/conversations",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "conversations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Mic devices",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/voice/devices",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "voice",
+            "devices"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Voice status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/voice/status",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "voice",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "TTS (English)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/tts",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "tts"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Hello, this is Vaani.\",\n  \"language\": \"en\"\n}"
+        }
+      }
+    },
+    {
+      "name": "TTS (Tamil)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/tts",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "tts"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"\\u0bb5\\u0ba3\\u0b95\\u0bcd\\u0b95\\u0bae\\u0bcd\",\n  \"language\": \"ta\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Transcribe audio file",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/transcribe",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "transcribe"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            },
+            {
+              "key": "language",
+              "value": "en",
+              "type": "text"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "List memories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/memories",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "memories"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Add memory",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/memories",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "memories"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"The user likes filter coffee.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Search memories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/memories/search?q=coffee",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "memories",
+            "search?q=coffee"
+          ]
+        }
+      }
+    },
+    {
+      "name": "List documents",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/documents",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "documents"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upload document",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/documents",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "documents"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Search documents",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/documents/search",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "documents",
+            "search"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"summary\",\n  \"k\": 3\n}"
+        }
+      }
+    },
+    {
+      "name": "List tools",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/api/tools",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "tools"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Run tool: calculator",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/tools/run",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "tools",
+            "run"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tool\": \"calculator\",\n  \"args\": {\n    \"expression\": \"12*(3+4)\"\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "Run tool: delete (needs confirmation)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/tools/run",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "tools",
+            "run"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tool\": \"delete_path\",\n  \"args\": {\n    \"path\": \"C:\\\\Users\\\\you\\\\Desktop\\\\test.txt\"\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "Confirm action",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/api/actions/<id>/confirm",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "api",
+            "actions",
+            "<id>",
+            "confirm"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"approve\": false\n}"
+        }
+      }
+    }
+  ]
+}

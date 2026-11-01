@@ -7,7 +7,7 @@ const nextKey = () => `k${++keyCounter}`
 export const BUSY_STAGES = ['transcribing', 'retrieving', 'thinking', 'responding']
 
 /** All real-time state for the assistant: WebSocket, messages, voice stage, pending confirmations. */
-export function useAssistant({ onReply } = {}) {
+export function useAssistant({ onReply, onToken, onAbort } = {}) {
   const [connected, setConnected] = useState(false)
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -19,6 +19,10 @@ export function useAssistant({ onReply } = {}) {
   const convRef = useRef(null)
   const replyRef = useRef(onReply)
   replyRef.current = onReply
+  const tokenRef = useRef(onToken)
+  tokenRef.current = onToken
+  const abortRef = useRef(onAbort)
+  abortRef.current = onAbort
 
   const handle = useCallback((ev) => {
     switch (ev.type) {
@@ -37,6 +41,7 @@ export function useAssistant({ onReply } = {}) {
         setMessages((m) => [...m, { key: nextKey(), role: 'user', content: ev.text, language: ev.language, voice: true }])
         break
       case 'token':
+        tokenRef.current?.(ev.text)
         setMessages((m) => {
           const last = m[m.length - 1]
           if (last && last.streaming) return [...m.slice(0, -1), { ...last, content: last.content + ev.text }]
@@ -56,10 +61,12 @@ export function useAssistant({ onReply } = {}) {
         replyRef.current?.(ev)
         break
       case 'error':
+        abortRef.current?.()
         setError(ev.message)
         setMessages((m) => (m[m.length - 1]?.streaming && !m[m.length - 1].content ? m.slice(0, -1) : m))
         break
       case 'cancelled':
+        abortRef.current?.()
         setMessages((m) => m.map((x) => (x.streaming ? { ...x, streaming: false } : x)))
         break
       default:
@@ -79,6 +86,7 @@ export function useAssistant({ onReply } = {}) {
         if (!alive) return
         setConnected(false)
         setStage('idle')
+        abortRef.current?.()
         timer = setTimeout(connect, 1500)
       }
     }

@@ -17,7 +17,11 @@ const SUGGESTIONS = [
 export default function Assistant({ a, speech, settings, updateSettings, onTalkStart, onSend }) {
   const holding = useRef(false)
   const busy = BUSY_STAGES.includes(a.stage)
-  const stageNow = speech.speaking && a.stage === 'idle' ? 'speaking' : a.stage
+  // "speaking" only while audio is really playing; "preparing" while the voice is being generated
+  const voiceActive = speech.state !== 'idle'
+  const stageNow = speech.state === 'speaking' ? 'speaking'
+    : a.stage !== 'idle' ? a.stage
+    : speech.state === 'preparing' ? 'preparing' : 'idle'
 
   const down = () => {
     if (holding.current || !a.connected) return
@@ -73,7 +77,7 @@ export default function Assistant({ a, speech, settings, updateSettings, onTalkS
             <h2 className="text-2xl font-semibold tracking-tight">How can I help?</h2>
             <p className="mt-1 text-sm text-stone-500">Runs locally on your computer · English and தமிழ்</p>
           </div>
-          <VoiceStage stage={stageNow} level={a.level} speaking={speech.speaking} height={88} />
+          <VoiceStage stage={stageNow} level={a.level} height={88} />
           {mic('lg')}
           <p className="text-sm text-stone-500">{STAGE_LABEL[stageNow] || ''}</p>
           <div className="flex max-w-2xl flex-wrap justify-center gap-2">
@@ -86,7 +90,7 @@ export default function Assistant({ a, speech, settings, updateSettings, onTalkS
         </div>
       ) : (
         <MessageList
-          messages={a.messages} speaking={speech.speaking} busy={busy} thinking={busy && a.stage !== 'responding'}
+          messages={a.messages} speaking={speech.state === 'speaking'} busy={busy} thinking={busy && a.stage !== 'responding'}
           onSpeak={(t) => speech.speak(t)} onStopSpeak={speech.stop} onRegenerate={a.regenerate}
         />
       )}
@@ -94,11 +98,11 @@ export default function Assistant({ a, speech, settings, updateSettings, onTalkS
       <div className="px-6 pb-6 pt-2">
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           {a.pending && <ConfirmCard pending={a.pending} onApprove={() => a.confirmAction(true)} onDeny={() => a.confirmAction(false)} />}
-          {!empty && (a.stage !== 'idle' || speech.speaking) && (
+          {!empty && (a.stage !== 'idle' || voiceActive) && (
             <div className="flex items-center justify-center gap-4">
-              <VoiceStage stage={stageNow} level={a.level} speaking={speech.speaking} height={28} />
+              <VoiceStage stage={stageNow} level={a.level} height={28} />
               <span className="text-xs text-stone-500">{STAGE_LABEL[stageNow]}</span>
-              {speech.speaking && <Button variant="ghost" className="px-2.5! py-1! text-xs" onClick={speech.stop}>Stop speaking</Button>}
+              {voiceActive && <Button variant="ghost" className="px-2.5! py-1! text-xs" onClick={speech.stop}>Stop speaking</Button>}
             </div>
           )}
           <Composer onSend={onSend} disabled={busy || !a.connected} leading={empty ? null : mic('sm')} />

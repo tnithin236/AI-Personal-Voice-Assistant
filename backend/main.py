@@ -19,7 +19,8 @@ async def lifespan(app: FastAPI):
     setup_logging(s.cfg.logs_dir)
     log.info("Vaani starting | model=%s | data=%s", s.settings.get("llm_model"), s.cfg.data_dir)
     warm = [asyncio.create_task(s.llm.warm()),
-            asyncio.create_task(asyncio.to_thread(_warm_embedder, s))]
+            asyncio.create_task(asyncio.to_thread(_warm_embedder, s)),
+            asyncio.create_task(asyncio.to_thread(s.tts.piper.warm, s.settings.get("piper_voice")))]
     yield
     for t in warm:
         t.cancel()

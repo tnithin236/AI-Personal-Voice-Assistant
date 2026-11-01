@@ -10,12 +10,13 @@ export const STAGE_LABEL = {
   retrieving: 'Checking memory…',
   thinking: 'Thinking…',
   responding: 'Responding…',
+  preparing: 'Preparing voice…',
   speaking: 'Speaking…',
 }
 
 /** Voice-activity animation: follows the real microphone level while listening. */
-export default function VoiceStage({ stage, level, speaking, height = 64 }) {
-  const mode = speaking ? 'speaking' : stage
+export default function VoiceStage({ stage, level, height = 64 }) {
+  const mode = stage
   const live = mode === 'listening'
   const busy = mode !== 'idle' && !live
   return (

@@ -16,20 +16,36 @@ export default function App() {
   const inputMode = useRef('text')
   const settingsRef = useRef(null)
   settingsRef.current = settings
+  const streaming = useRef(false) // true while a reply is being spoken sentence-by-sentence
 
   const speechErr = useRef(null)
   const speech = useSpeech((m) => speechErr.current?.(m))
+  const { startStream, feed, finish, speak, stop } = speech
+
+  const shouldSpeak = useCallback(() => {
+    const mode = settingsRef.current?.speak_replies ?? 'voice'
+    return mode === 'always' || (mode === 'voice' && inputMode.current === 'voice')
+  }, [])
+
+  // Speak while the model is still writing: each finished sentence goes to the voice immediately.
+  const onToken = useCallback((t) => {
+    if (!shouldSpeak()) return
+    if (!streaming.current) { streaming.current = true; startStream() }
+    feed(t)
+  }, [shouldSpeak, startStream, feed])
 
   const onReply = useCallback((ev) => {
-    const mode = settingsRef.current?.speak_replies ?? 'voice'
-    if (mode === 'always' || (mode === 'voice' && inputMode.current === 'voice')) speech.speak(ev.text)
-  }, [speech])
+    if (streaming.current) { streaming.current = false; finish() }
+    else if (shouldSpeak() && ev.text) speak(ev.text) // e.g. tool confirmations that arrive without streaming
+  }, [shouldSpeak, finish, speak])
 
-  const a = useAssistant({ onReply })
+  const onAbort = useCallback(() => { streaming.current = false; stop() }, [stop])
+
+  const a = useAssistant({ onReply, onToken, onAbort })
   speechErr.current = a.setError
 
-  const send = (text) => { inputMode.current = 'text'; speech.stop(); a.sendText(text) }
-  const talkStart = () => { inputMode.current = 'voice'; speech.stop() }
+  const send = (text) => { inputMode.current = 'text'; stop(); a.sendText(text) }
+  const talkStart = () => { inputMode.current = 'voice'; stop() }
   const updateSettings = (v) => update(v).catch((e) => a.setError(e.message))
 
   const open = async (id) => { await a.loadConversation(id); setPage('assistant') }

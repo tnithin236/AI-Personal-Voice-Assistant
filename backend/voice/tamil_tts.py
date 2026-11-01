@@ -17,15 +17,17 @@ class TamilTTS:
 
     def status(self) -> dict:
         try:
-            r = httpx.get(f"{self.base_url}/health", timeout=1.5)
+            r = httpx.get(f"{self.base_url}/health", timeout=httpx.Timeout(2.0))
             r.raise_for_status()
             return {"ok": True, **r.json()}
         except Exception as e:  # noqa: BLE001
             return {"ok": False, "error": f"Tamil TTS service not reachable at {self.base_url} ({type(e).__name__})"}
 
     def synthesize(self, text: str) -> bytes:
+        # Fail fast (2 s) if the service isn't running; allow up to 2 min once connected (CPU synthesis is slow).
         try:
-            r = httpx.post(f"{self.base_url}/synthesize", json={"text": text}, timeout=120)
+            r = httpx.post(f"{self.base_url}/synthesize", json={"text": text},
+                           timeout=httpx.Timeout(120.0, connect=2.0))
         except httpx.HTTPError as e:
             raise TTSUnavailable("Tamil voice service is not running; showing text only.") from e
         if r.status_code != 200:

@@ -6,7 +6,8 @@ LANG_RULES = {
 
 
 def system_prompt(name: str, lang_mode: str, now: str, memories: list[str] | None = None,
-                  doc_context: str | None = None, tool_result: tuple[str, str] | None = None) -> str:
+                  doc_context: str | None = None, tool_result: tuple[str, str] | None = None,
+                  extra_note: str | None = None) -> str:
     parts = [
         f"You are {name}, a friendly personal voice assistant running locally on the user's Windows computer.",
         "Your replies are read aloud, so be concise (1-4 short sentences unless asked for detail), "
@@ -14,6 +15,9 @@ def system_prompt(name: str, lang_mode: str, now: str, memories: list[str] | Non
         LANG_RULES.get(lang_mode, LANG_RULES["auto"]),
         f"Current local time: {now}.",
         "Be honest. If you don't know something, say so instead of guessing.",
+        "Never invent facts about the user, their work, their files or past events. Only use facts that are "
+        "listed below. Never say you are opening, reading or accessing a file unless document excerpts are "
+        "provided below.",
     ]
     if memories:
         parts.append("Things you remember about the user (use only when relevant):\n"
@@ -24,10 +28,13 @@ def system_prompt(name: str, lang_mode: str, now: str, memories: list[str] | Non
             "\n\nIf the question concerns these documents, answer ONLY from the excerpts and mention the file name. "
             "If the excerpts do not contain the answer, say you could not find it in the uploaded documents. "
             "Never invent document content.")
+    if extra_note:
+        parts.append(extra_note)
     if tool_result:
         tool, result = tool_result
         parts.append(f"A tool ('{tool}') was just run for this request. Its result:\n{result}\n"
-                     "Use this result to answer. Do not claim to have done anything beyond it.")
+                     "State the answer directly in one short sentence. Do not describe the steps. "
+                     "Do not claim to have done anything beyond the tool result.")
     return "\n\n".join(parts)
 
 

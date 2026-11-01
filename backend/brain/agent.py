@@ -30,6 +30,13 @@ _REMEMBER = re.compile(
     r"\bi hate\b|\bi don'?t like\b|\bmy fav|\bcall me\b|\bmy birthday\b|\bi was born\b|\bmy (wife|husband|mother|father|"
     r"brother|sister|friend|son|daughter)\b|என் பெயர்|நினைவில்|எனக்கு பிடி)", re.I)
 
+# Words that suggest the user is asking about an uploaded document.
+_DOC_WORDS = re.compile(r"\b(documents?|docs?|pdf|resume|cv|files?|notes|uploaded|attachment|report|paper|article)\b"
+                        r"|ஆவணம்|கோப்பு", re.I)
+
+# An explicit request for the web is allowed to override document answers.
+_WEB_REQUEST = re.compile(r"\b(search|google|look up|on the web|online|internet)\b", re.I)
+
 
 def fit_history(history: list[dict], budget: int) -> list[dict]:
     """Keep the most recent messages that fit in `budget` estimated tokens."""
@@ -63,10 +70,18 @@ class Agent:
         memories, chunks = await asyncio.to_thread(self._retrieve, user_text, cfg)
         t_retr = time.perf_counter()
 
+        doc_note = None
+        if cfg["use_documents"] and not chunks and _DOC_WORDS.search(user_text):
+            doc_note = ("The user seems to be asking about an uploaded document, but no uploaded document matched "
+                        f"({s.documents_repo.count()} indexed). Say you couldn't find it in the uploaded documents "
+                        "and suggest uploading it on the Documents page. Do not guess or invent its contents.")
+
         # 2. Think: does this need a tool? -------------------------------
         await emit({"type": "status", "stage": "thinking"})
         tool_used, tool_result = None, None
-        if cfg["use_tools"]:
+        # If the user's own documents already matched, answer from them: don't also go to the web or run
+        # tools, unless the user explicitly asked for a web search.
+        if cfg["use_tools"] and not (chunks and not _WEB_REQUEST.search(user_text)):
             try:
                 call = await tool_router.route(s.llm, user_text)
             except LLMError as e:
@@ -102,7 +117,8 @@ class Agent:
             s.cfg.app_name, lang_mode, now,
             memories=[m["text"] for m in memories] or None,
             doc_context=format_chunks(chunks) if chunks else None,
-            tool_result=(tool_used, tool_result) if tool_used else None)
+            tool_result=(tool_used, tool_result) if tool_used else None,
+            extra_note=doc_note)
         history = s.convo.messages(conv_id)
         if history and history[-1]["role"] == "user":
             history = history[:-1]
@@ -158,6 +174,8 @@ class Agent:
                              [(round(m["score"], 3), m["text"][:40]) for m in memories])
             if cfg["use_documents"] and self.s.documents_repo.count() > 0:
                 chunks = self.s.vectors.search_docs(text, k=DOC_TOP_K, min_score=DOC_MIN_SCORE)
+                if not chunks and _DOC_WORDS.search(text):  # user named a document: accept weaker matches
+                    chunks = self.s.vectors.search_docs(text, k=3, min_score=0.05)
                 if chunks:
                     log.info("Document chunks used: %s",
                              [(round(c["score"], 3), c["filename"]) for c in chunks])

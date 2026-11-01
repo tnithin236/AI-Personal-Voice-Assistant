@@ -13,7 +13,7 @@ _DATETIME = re.compile(
 _HINTS = re.compile(
     r"(\d\s*[+\-*/x×÷^%]\s*\d|\bcalculat|\bhow much is\b|\bwhat is \d|\bsquare root\b|"
     r"\bsearch\b|\bgoogle\b|\blook up\b|\blatest\b|\bnews\b|\bweather\b|\bprice of\b|"
-    r"\bopen\b|\blaunch\b|\bstart (the )?\w+ app|\bfolder\b|\bfind\b.*\bfile|\bwhere is my\b|\blocate\b|"
+    r"\bopen\b|\blaunch (the )?(app|application|program|notepad|calculator|paint|chrome|edge|firefox|word|excel|powerpoint|spotify|code)\b|\bstart (the )?\w+ app|\bfolder\b|\bfind\b.*\bfile|\bwhere is my\b|\blocate\b|"
     r"\bdelete\b|\bremove\b|\bscreenshot\b|\bvolume\b|\bmute\b|\bpause\b|\bplay\b|\bnext track\b|"
     r"கணக்கிட|தேடு|திற|நேரம்|தேதி|நீக்கு|கோப்பு)", re.I)
 

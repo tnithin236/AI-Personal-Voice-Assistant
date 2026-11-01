@@ -18,6 +18,13 @@ from .prompts import MEMORY_EXTRACT_PROMPT, system_prompt
 log = logging.getLogger(__name__)
 Emit = Callable[[dict], Awaitable[None]]
 
+# Retrieval cut-offs. MiniLM scores first-person questions ("What do I do for work?") low against
+# third-person facts ("The user works as..."), so the memory cut-off must be loose. Measured: 0.187.
+MEMORY_MIN_SCORE = 0.12
+MEMORY_TOP_K = 5
+DOC_MIN_SCORE = 0.30
+DOC_TOP_K = 4
+
 _REMEMBER = re.compile(
     r"(\bremember\b|\bmy name\b|\bi am\b|\bi'm\b|\bi live\b|\bi work\b|\bi study\b|\bi like\b|\bi love\b|\bi prefer\b|"
     r"\bi hate\b|\bi don'?t like\b|\bmy fav|\bcall me\b|\bmy birthday\b|\bi was born\b|\bmy (wife|husband|mother|father|"
@@ -145,9 +152,15 @@ class Agent:
         memories, chunks = [], []
         try:
             if cfg["use_memory"]:
-                memories = self.s.vectors.search_memories(text, k=4, min_score=0.35)
+                memories = self.s.vectors.search_memories(text, k=MEMORY_TOP_K, min_score=MEMORY_MIN_SCORE)
+                if memories:
+                    log.info("Memories used: %s",
+                             [(round(m["score"], 3), m["text"][:40]) for m in memories])
             if cfg["use_documents"] and self.s.documents_repo.count() > 0:
-                chunks = self.s.vectors.search_docs(text, k=4, min_score=0.3)
+                chunks = self.s.vectors.search_docs(text, k=DOC_TOP_K, min_score=DOC_MIN_SCORE)
+                if chunks:
+                    log.info("Document chunks used: %s",
+                             [(round(c["score"], 3), c["filename"]) for c in chunks])
         except Exception:  # noqa: BLE001 - retrieval must never break chat
             log.exception("Retrieval failed; continuing without it")
         return memories, chunks

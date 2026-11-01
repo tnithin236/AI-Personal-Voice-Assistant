@@ -52,16 +52,22 @@ class RouterTests(unittest.TestCase):
 
 class FileManagerTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.mkdtemp()
-        self.old = os.environ.get("HOME")
-        os.environ["HOME"] = self.tmp  # Path.home() follows $HOME on Linux
-        os.environ["USERPROFILE"] = self.tmp
+        # resolve() so Windows short names (NITHIN~1) match the long names safe_path() returns
+        self.tmp = str(Path(tempfile.mkdtemp()).resolve())
+        self.old_home = os.environ.get("HOME")
+        self.old_profile = os.environ.get("USERPROFILE")
+        os.environ["HOME"] = self.tmp          # Path.home() reads HOME on Linux/macOS...
+        os.environ["USERPROFILE"] = self.tmp   # ...and USERPROFILE on Windows
         (Path(self.tmp) / "Desktop").mkdir()
         from backend.tools import file_manager
         self.fm = file_manager
 
     def tearDown(self):
-        os.environ["HOME"] = self.old or ""
+        for key, old in (("HOME", self.old_home), ("USERPROFILE", self.old_profile)):
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
 
     def test_confined_to_home(self):
         with self.assertRaises(ToolError):

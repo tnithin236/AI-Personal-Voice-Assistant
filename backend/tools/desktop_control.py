@@ -1,6 +1,7 @@
 """Allow-listed desktop automation. Nothing here ever runs a user-supplied command line."""
-import logging
+import difflib
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -57,18 +58,47 @@ KEY_ALLOWLIST = {"volume up": "volumeup", "volume down": "volumedown", "mute": "
                  "play pause": "playpause", "next track": "nexttrack", "previous track": "prevtrack"}
 
 
+def resolve_app(name: str, apps: dict[str, str]) -> tuple[str | None, list[str]]:
+    """Match a spoken app name to a key of `apps`. Returns (key, suggestions); key is None unless exactly one
+    app fits, so an ambiguous request is never guessed."""
+    q = re.sub(r"\s+", " ", (name or "").strip().lower())
+    q = re.sub(r"^(the|my)\s+", "", q)
+    q = re.sub(r"\s+(app|application|program)$", "", q)
+    if not q:
+        return None, []
+    if q in apps:
+        return q, []
+    if len(q) >= 3:
+        starts = [k for k in apps if k.startswith(q)]
+        words = [k for k in apps if re.search(rf"\b{re.escape(q)}\b", k)]
+        if len(starts) == 1:
+            return starts[0], []
+        if not starts and len(words) == 1:
+            return words[0], []
+        pool = starts or words
+        if len(pool) > 1:
+            base = min(pool, key=len)
+            if all(k.startswith(base) for k in pool):  # "vlc media player" + "...skinned": the base app is meant
+                return base, []
+            return None, sorted(pool, key=len)[:5]
+    close = difflib.get_close_matches(q, list(apps), n=3, cutoff=0.85)
+    if len(close) == 1:
+        return close[0], []
+    return None, close or difflib.get_close_matches(q, list(apps), n=3, cutoff=0.6)
+
+
 def open_app(name: str) -> str:
-    key = (name or "").strip().lower()
     apps = all_apps()
-    exe = apps.get(key)
-    if not exe:
-        raise ToolError(f"'{name}' is not on my allowed apps list. Allowed: {', '.join(sorted(apps))}. "
-                        "New apps can be added in data/apps.json.")
+    key, suggestions = resolve_app(name, apps)
+    if key is None:
+        hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+        raise ToolError(f"'{name}' is not on my allowed apps list.{hint} You can add it in data/apps.json.")
+    exe = apps[key]
     if sys.platform != "win32":
         raise ToolError("Opening apps is only implemented for Windows.")
     # `start` resolves App Paths (chrome, winword, ...) and URI schemes (ms-settings:)
     subprocess.Popen(["cmd", "/c", "start", "", exe], creationflags=subprocess.CREATE_NO_WINDOW)
-    return f"Opening {name}."
+    return f"Opening {key}."
 
 
 def open_website(url: str) -> str:

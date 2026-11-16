@@ -27,7 +27,8 @@ class Config(BaseSettings):
     whisper_model: str = "small"
     whisper_device: str = "cpu"
     whisper_compute: str = "int8"
-    whisper_beam: int = 1
+    whisper_beam: int = 1        # used for Tamil and Auto (Tamil needs ~5 to spell correctly)
+    whisper_beam_en: int = 1     # used when the language is fixed to English (faster)
     whisper_threads: int = 0  # 0 = library default
     piper_voice: str = "en_US-lessac-medium"
     piper_exe: str = ""

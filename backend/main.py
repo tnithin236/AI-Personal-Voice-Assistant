@@ -31,8 +31,9 @@ async def lifespan(app: FastAPI):
 def _warm_embedder(s) -> None:
     try:
         s.embedder.embed(["warm-up"])
+        _ = s.vectors  # open the vector database now so the first chat message does not pay for it
     except Exception as e:  # noqa: BLE001
-        log.warning("Embedding warm-up skipped: %s", e)
+        log.warning("Embedding/vector-store warm-up skipped: %s", e)
 
 
 app = FastAPI(title="Vaani - Personal Voice Assistant", lifespan=lifespan)

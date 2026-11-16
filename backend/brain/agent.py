@@ -78,7 +78,7 @@ class Agent:
 
         # 2. Think: does this need a tool? -------------------------------
         await emit({"type": "status", "stage": "thinking"})
-        tool_used, tool_result = None, None
+        tool_used, tool_result, direct_text = None, None, None
         # If the user's own documents already matched, answer from them: don't also go to the web or run
         # tools, unless the user explicitly asked for a web search.
         if cfg["use_tools"] and not (chunks and not _WEB_REQUEST.search(user_text)):
@@ -103,13 +103,32 @@ class Agent:
                     tool_result = await asyncio.to_thread(spec.fn, **call.args)
                     tool_used = call.tool
                     await emit({"type": "tool", "tool": call.tool, "result": tool_result})
+                    if spec.direct_reply:
+                        direct_text = tool_result
                 except ToolError as e:
                     tool_used, tool_result = call.tool, f"The tool failed: {e}"
                     await emit({"type": "tool", "tool": call.tool, "result": tool_result, "error": True})
+                    if spec.direct_reply:
+                        direct_text = f"I couldn't do that. {e}"
                 except Exception as e:  # noqa: BLE001
                     log.exception("tool %s crashed", call.tool)
                     tool_used, tool_result = call.tool, f"The tool crashed: {e}"
+                    if spec.direct_reply:
+                        direct_text = "Sorry, that action failed unexpectedly. Check the backend log."
         t_tool = time.perf_counter()
+
+        # Desktop actions are answered with the tool's own words. A small model must not get the chance to
+        # misreport (or copy an earlier refusal from the chat history) about something that really happened.
+        if direct_text is not None:
+            reply_lang = detect_language(direct_text)
+            timings = {"retrieval_ms": round((t_retr - t0) * 1000), "tool_ms": round((t_tool - t_retr) * 1000),
+                       "first_token_ms": None, "total_ms": round((t_tool - t0) * 1000), "tokens_per_s": None}
+            mid = s.convo.add_message(conv_id, "assistant", direct_text, reply_lang,
+                                      {"tool": tool_used, "timings": timings, "direct": True})
+            log.info("Direct tool reply (%s): %s", tool_used, direct_text[:80])
+            await emit({"type": "done", "conversation_id": conv_id, "message_id": mid, "text": direct_text,
+                        "language": reply_lang, "tool": tool_used, "timings": timings})
+            return
 
         # 3. Build the prompt within the context budget ------------------
         now = datetime.now().strftime("%A, %d %B %Y, %I:%M %p")

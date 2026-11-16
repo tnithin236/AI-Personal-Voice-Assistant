@@ -15,18 +15,23 @@ remembers, searches your documents, uses tools, and answers by voice. No paid AP
 | Storage | SQLite (chats, settings) + embedded Qdrant (memories, documents) |
 | Embeddings | all-MiniLM-L6-v2 (CPU) |
 
-## Honest status: what is verified and what is not
+## Status: what has been verified
 
-This code was written in an environment with **no internet, no Windows, no GPU and no microphone**. So:
+Everything below was run by the author on the target machine (Windows 11, RTX 3050 4 GB, `gemma3:4b`).
+The full checklist, with a PASS column to fill in, is in [TESTING.md](TESTING.md).
 
-| Part | Status |
+| Confirmed working | Not yet confirmed |
 |---|---|
-| Calculator, chunking, router validation, SQLite, settings, file-safety rules, URL/app allow-lists | **Unit-tested** (`python -m unittest`) |
-| All Python files compile; all JS/JSX files parse | **Checked** |
-| Ollama chat, Whisper, microphone, Piper, Qdrant, MiniLM, PDF reading, web search, React build, WebSocket flow | **Written but NOT run.** Test each one using the checklist below |
-| Tamil TTS (Indic-TTS) | **Least certain.** Written against the documented Coqui API; model paths and install on Windows may need adjusting |
+| Chat with streaming replies, history, React UI, WebSocket | Time tool, file search, folder creation |
+| Push-to-talk (button and Space key), English transcription | Delete confirmation and refusal flow (H1-H4) |
+| Tamil transcription (Whisper `small`, beam 5, language set to Tamil) | Indic-TTS engine (the optional alternative) |
+| English speech (Piper, in-process, ~0.1 s per sentence) | Long-running stability |
+| Tamil speech (MMS-TTS engine) | Performance report (section J of TESTING.md) |
+| Long-term memory: save, recall, restart, delete | |
+| Document Q&A, including "not found" and deleted files | |
+| Calculator, web search, opening apps (incl. `apps.json`) | |
 
-Treat each phase below as "implemented, awaiting your test", and send me the output of any step that fails.
+Automated tests: `python -m unittest discover -s tests -t .` (67 tests, no models needed).
 
 ## 1. Setup (Windows PowerShell)
 
@@ -78,7 +83,8 @@ Pass = it answers from the file, and says it could not find the second.
 **Phase 7 — Tools.** "What's 15% of 2480", "what time is it", "search the web for …", "open notepad", "create a folder called test".
 Then "delete C:\Users\Nithin T\Desktop\test" — Pass = a confirmation card appears and nothing is deleted until you approve.
 
-**Phase 8 — Performance.** `python scripts\benchmark_pipeline.py`, and watch Settings → System status (RAM / VRAM). Timings also appear under each reply.
+**Phase 8 — Performance.** Use the assistant for a while, then `python scripts\log_report.py` (latency per stage from the log) and
+`python scripts\resource_report.py --seconds 90` (RAM / VRAM while you use it). `python scripts\benchmark_pipeline.py` runs a fixed set of text prompts. Timings also appear under each reply.
 
 Unit tests (no models needed): `python -m unittest tests.test_core tests.test_tools tests.test_memory -v`
 Full-stack vector test (after install): `python -m unittest tests.test_integration -v`
@@ -96,17 +102,21 @@ You need `en_US-lessac-medium.onnx` and its `.onnx.json` in `data\models\piper`.
 download `piper.exe` from the Piper releases page and set `VAANI_PIPER_EXE=C:\path\to\piper.exe` in `.env`.
 Other voices: drop their files in the same folder; they appear in Settings.
 
-## 5. Tamil speech output (optional, isolated)
+## 5. Tamil speech output (optional)
 
-Indic-TTS depends on an older Coqui TTS fork, so it runs in its **own** venv as a small local service (port 8010). The main app never imports it.
+Tamil replies are always shown as text. To also hear them, start the small Tamil voice service (port 8010):
 
-1. Create a venv, ideally with Python 3.10: `py -3.10 -m venv .venv-tamil` (install 3.10 first if `py -0` doesn't list it).
-2. Follow https://github.com/AI4Bharat/Indic-TTS to install its TTS fork into `.venv-tamil` and download the Tamil models.
-3. Put the models under `services\tamil_tts\models\ta\{fastpitch,hifigan}\` or point to them with env vars (see top of `services\tamil_tts\server.py`).
-4. `pip install -r services\tamil_tts\requirements.txt` in `.venv-tamil`, then `scripts\start_tamil_tts.ps1`.
-5. Settings → System status shows "Tamil voice: running".
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start_tamil_tts.ps1
+```
 
-If this service is off, Vaani still understands and answers Tamil in text. Tamil TTS runs on CPU so it never competes with Gemma for VRAM.
+- **Default engine: MMS-TTS Tamil** (Meta, `facebook/mms-tts-tam`). It runs on CPU inside the main `.venv` with packages you
+  already have, so there is nothing to install. The model (a small download) is fetched from Hugging Face on first start.
+  Its license is CC-BY-NC 4.0 (non-commercial), which is fine for personal and portfolio use.
+- **AI4Bharat Indic-TTS** (the originally specified engine) is still supported: `$env:TAMIL_TTS_ENGINE = "indic"` before starting,
+  from a separate `.venv-tamil`. It follows a Linux/conda setup with an old Coqui fork and is **not verified on Windows**.
+- Digits and Latin letters inside Tamil sentences are not spoken by MMS; write numbers as words if that matters.
+- Settings -> System status shows "Tamil voice: running" when the service is up. If it is off, Vaani falls back to text only.
 
 ## 6. How it fits a 4 GB GPU
 

@@ -40,7 +40,8 @@ class SpeechToText:
             return {"text": "", "language": language or "en", "probability": 0.0, "duration": 0.0, "ms": 0}
         model = self.ensure_loaded(model_name)
         t = time.perf_counter()
-        kw = dict(beam_size=self.cfg.whisper_beam, vad_filter=True,
+        beam = self.cfg.whisper_beam_en if language == "en" else self.cfg.whisper_beam
+        kw = dict(beam_size=beam, vad_filter=True,
                   vad_parameters={"min_silence_duration_ms": 500}, condition_on_previous_text=False)
         segments, info = model.transcribe(audio, language=language, **kw)
         text = " ".join(s.text.strip() for s in segments).strip()
@@ -56,6 +57,6 @@ class SpeechToText:
                 text = " ".join(s.text.strip() for s in segments).strip()
             detected, prob = forced, probs.get(forced, 0.0)
         ms = round((time.perf_counter() - t) * 1000)
-        log.info("STT %dms lang=%s (%.2f): %s", ms, detected, prob, text[:80])
+        log.info("STT %dms lang=%s (%.2f) beam=%d: %s", ms, detected, prob, beam, text[:80])
         return {"text": text, "language": detected, "probability": prob,
                 "duration": round(info.duration, 2), "ms": ms}

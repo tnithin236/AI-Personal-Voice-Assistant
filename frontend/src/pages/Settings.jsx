@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Volume2 } from 'lucide-react'
 import { api } from '../services/api'
 import LanguageSelect from '../components/LanguageSelect'
 import PageHeader, { Button } from '../components/PageHeader'
@@ -36,6 +36,7 @@ export default function Settings({ settings, updateSettings, reset }) {
   const [health, setHealth] = useState(null)
   const [system, setSystem] = useState(null)
   const [error, setError] = useState(null)
+  const [testing, setTesting] = useState(false)
 
   useEffect(() => {
     api.get('/llm/models').then(setModels).catch(() => {})
@@ -50,6 +51,22 @@ export default function Settings({ settings, updateSettings, reset }) {
     const id = setInterval(tick, 5000)
     return () => clearInterval(id)
   }, [])
+
+  const playTamilSample = async () => {
+    setTesting(true)
+    setError(null)
+    try {
+      const blob = await api.tts('வணக்கம், நான் வாணி. உங்களுக்கு எப்படி உதவ முடியும்?', 'ta')
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audio.onended = () => URL.revokeObjectURL(url)
+      await audio.play()
+    } catch (e) {
+      setError(`Tamil voice test failed: ${e.message}`)
+    } finally {
+      setTesting(false)
+    }
+  }
 
   if (!settings) return <div className="p-8 text-sm text-stone-500">Loading settings… (is the backend running?)</div>
   const set = (k, v) => updateSettings({ [k]: v }).catch((e) => setError(e.message))
@@ -91,6 +108,16 @@ export default function Settings({ settings, updateSettings, reset }) {
             <Row label={`Speech speed · ${Number(settings.voice_speed).toFixed(2)}×`}>
               <input type="range" min="0.6" max="1.6" step="0.05" value={settings.voice_speed}
                 onChange={(e) => set('voice_speed', Number(e.target.value))} className="w-44 accent-stone-900" />
+            </Row>
+            <Row label={`Tamil voice pitch · ${Number(settings.tamil_pitch ?? 1.5).toFixed(2)}×`}
+              hint="1.00 is the original male voice. Higher is more feminine; about 1.4–1.6 is a good start. Press Test after moving.">
+              <div className="flex items-center gap-3">
+                <input type="range" min="1" max="1.8" step="0.05" value={settings.tamil_pitch ?? 1.5}
+                  onChange={(e) => set('tamil_pitch', Number(e.target.value))} className="w-36 accent-stone-900" />
+                <Button variant="ghost" onClick={playTamilSample} disabled={testing}>
+                  <Volume2 size={14} /> {testing ? 'Playing…' : 'Test'}
+                </Button>
+              </div>
             </Row>
             <Row label="Speak replies aloud">
               <select className={selectCls} value={settings.speak_replies} onChange={(e) => set('speak_replies', e.target.value)}>

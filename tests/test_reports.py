@@ -52,6 +52,15 @@ class LogReportTests(unittest.TestCase):
         d = log_report.parse(["2026-11-13 20:00:00,000 | INFO | s | STT 1500ms lang=en (1.00) beam=1: hello"])
         self.assertEqual(d["stt_en"], [1500])
 
+    def test_markdown_table(self):
+        md = log_report.report_markdown(log_report.parse(LOG.splitlines()))
+        lines = md.splitlines()
+        self.assertEqual(lines[0], "| Metric | n | Median | p95 | Max |")
+        self.assertIn("| Speech recognition, Tamil (ms) | 1 | 4641 | 4641 | 4641 |", md)
+        self.assertIn("| Speech synthesis: piper-in-process (ms) | 2 |", md)
+        self.assertTrue(all(row.count("|") == 6 for row in lines))      # every row has 5 cells
+        self.assertEqual(len(log_report.report_markdown(log_report.parse([])).splitlines()), 2)  # header only
+
     def test_empty_log_does_not_crash(self):
         self.assertIn("metric", log_report.report(log_report.parse([])))
 

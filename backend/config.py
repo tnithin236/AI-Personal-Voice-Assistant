@@ -81,6 +81,7 @@ class Config(BaseSettings):
             "mic_device": None,
             "piper_voice": self.piper_voice,
             "voice_speed": 1.0,
+            "tamil_pitch": 1.5,          # 1.0 = the model's own male voice; higher = more feminine
             "speak_replies": "voice",    # voice | always | never
             "use_memory": True,
             "auto_memory": True,

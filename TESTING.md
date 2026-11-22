@@ -34,6 +34,7 @@ Always start the test in a **New** conversation. Machine: Windows 11, 24 GB RAM,
 | D2 | Tamil reply is spoken (Tamil service running) | audible Tamil speech | |
 | D3 | Stop the Tamil service, ask again | red "text only" banner within ~2 s, text reply still appears | |
 | D4 | Language Auto, switch between English and Tamil | each answered in its own language | |
+| D5 | Settings -> Tamil voice pitch: compare 1.00 and 1.50 with the Test button | 1.50 sounds clearly more feminine and still understandable; the reply voice follows the setting | |
 
 ## E. Memory
 | # | Test | Expected | Result |

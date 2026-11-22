@@ -67,6 +67,21 @@ def row(name, xs, unit="ms"):
             f"{max(xs):10.0f}  {unit}")
 
 
+def report_markdown(d) -> str:
+    """Same numbers as report(), as a Markdown table you can paste into the README or TESTING.md."""
+    rows = [("Speech recognition, all", d["stt_all"], "ms"), ("Speech recognition, English", d.get("stt_en", []), "ms"),
+            ("Speech recognition, Tamil", d.get("stt_ta", []), "ms"),
+            ("Memory / document retrieval", d["retrieval_ms"], "ms"), ("Tool step (router + tool)", d["tool_ms"], "ms"),
+            ("Time to first word (text)", d["first_token_ms"], "ms"), ("Reply complete (text)", d["total_ms"], "ms"),
+            ("Generation speed", d["tokens_per_s"], "tok/s")]
+    rows += [(f"Speech synthesis: {m}", xs, "ms") for m, xs in sorted(d["tts"].items())]
+    out = ["| Metric | n | Median | p95 | Max |", "|---|---:|---:|---:|---:|"]
+    for name, xs, unit in rows:
+        if xs:
+            out.append(f"| {name} ({unit}) | {len(xs)} | {statistics.median(xs):.0f} | {percentile(xs, 95):.0f} | {max(xs):.0f} |")
+    return "\n".join(out)
+
+
 def report(d) -> str:
     out = [f"{'metric':34s} {'n':>5s} {'median':>10s} {'p95':>10s} {'max':>10s}", "-" * 78]
     out += [row("speech recognition (all)", d["stt_all"]),
@@ -92,6 +107,7 @@ def report(d) -> str:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--file", default=str(ROOT / "data" / "logs" / "vaani.log"))
+    ap.add_argument("--markdown", action="store_true", help="print a Markdown table instead of plain text")
     ap.add_argument("--all", action="store_true", help="include every session, not just the latest")
     ap.add_argument("--since", help='e.g. "2026-11-13 10:00" (compared with the log timestamps)')
     a = ap.parse_args()
@@ -101,7 +117,8 @@ def main():
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     if not a.all and not a.since:
         lines = latest_session(lines)
-    print(report(parse(lines, a.since)))
+    d = parse(lines, a.since)
+    print(report_markdown(d) if a.markdown else report(d))
 
 
 if __name__ == "__main__":

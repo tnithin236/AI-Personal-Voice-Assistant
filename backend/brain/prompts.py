@@ -1,7 +1,7 @@
 LANG_RULES = {
     "en": "Reply in English.",
-    "ta": "Reply in Tamil (தமிழ்), written in Tamil script.",
-    "auto": "Reply in the same language the user wrote in (English or Tamil).",
+    "ta": "Reply in Tamil (தமிழ்), written in Tamil script only. Do not add a transliteration or an English translation in brackets.",
+    "auto": "Reply in the same language the user wrote in (English or Tamil). When you reply in Tamil, use Tamil script only, with no transliteration or English translation in brackets.",
 }
 
 

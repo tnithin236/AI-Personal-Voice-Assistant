@@ -11,6 +11,7 @@ Run:  scripts\\start_tamil_tts.ps1
 """
 import io
 import logging
+import math
 import os
 import threading
 import time
@@ -23,6 +24,48 @@ log = logging.getLogger("tamil_tts")
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 MAX_CHARS = 600
+PITCH_MIN, PITCH_MAX = 1.0, 1.8
+FALLBACK_PITCH_MAX = 1.3   # the no-Praat fallback sounds unnatural above this
+
+
+def clamp_pitch(pitch) -> float:
+    try:
+        return min(PITCH_MAX, max(PITCH_MIN, float(pitch)))
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def praat_available() -> bool:
+    try:
+        import parselmouth  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def feminise(samples, rate: int, pitch_ratio: float):
+    """Praat's "Change gender": multiplies the median pitch by `pitch_ratio` and moves the formants up with it
+    (a formant ratio of about 1.1 turns a male voice into approximately female formants, per the Praat manual).
+    Returns a float32 array, or None if Praat is missing, the clip has no measurable pitch, or Praat fails."""
+    try:
+        import parselmouth
+        from parselmouth.praat import call
+    except ImportError:
+        return None
+    try:
+        sound = parselmouth.Sound(np.asarray(samples, dtype=np.float64).reshape(-1), sampling_frequency=rate)
+        pitch = call(sound, "To Pitch", 0.8 / 75, 75, 600)
+        median = call(pitch, "Get quantile", 0.0, 0.0, 0.5, "Hertz")
+        if not median or math.isnan(median):
+            return None
+        formant_ratio = min(1.2, 1.0 + 0.3 * (pitch_ratio - 1.0))
+        out = call(sound, "Change gender", 75, 600, formant_ratio, median * pitch_ratio, 1.0, 1.0)
+        audio = np.asarray(out.values, dtype=np.float32).reshape(-1)
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        return audio / peak * 0.99 if peak > 0.99 else audio
+    except Exception as e:  # noqa: BLE001 - never let post-processing break speech
+        log.warning("Voice change failed (%s: %s); speaking with the original voice", type(e).__name__, e)
+        return None
 
 
 def pcm16_wav(samples, rate: int) -> bytes:
@@ -66,16 +109,38 @@ class MmsEngine:
         self.model = VitsModel.from_pretrained(self.model_name, cache_dir=str(self.cache_dir)).eval()
         log.info("Loaded in %.1fs", time.perf_counter() - t)
 
-    def synthesize(self, text: str) -> bytes:
+    def _waveform(self, inputs, speaking_rate=None):
         import torch
+        torch.manual_seed(555)  # VITS is stochastic; a fixed seed keeps the voice consistent
+        base_rate = getattr(self.model, "speaking_rate", 1.0)
+        try:
+            if speaking_rate is not None:
+                self.model.speaking_rate = speaking_rate
+            with torch.no_grad():
+                wave_out = self.model(**inputs).waveform
+        finally:
+            self.model.speaking_rate = base_rate
+        return wave_out.squeeze().cpu().numpy()
+
+    def synthesize(self, text: str, pitch=None) -> bytes:
+        """pitch = 1.0 keeps the model's own (male) voice. pitch > 1 makes it higher and more feminine:
+        with Praat installed it is a proper pitch + formant change; without Praat it falls back to relabelling
+        the sample rate (higher pitch and faster, so the model is asked to speak slower to compensate)."""
         self.load()
+        pitch = clamp_pitch(pitch if pitch is not None else 1.0)
         inputs = self.tokenizer(text, return_tensors="pt")
         if inputs["input_ids"].shape[-1] == 0:
             raise ValueError("No speakable Tamil characters in that text.")
-        torch.manual_seed(555)  # VITS is stochastic; a fixed seed keeps the voice consistent
-        with torch.no_grad():
-            wave_out = self.model(**inputs).waveform
-        return pcm16_wav(wave_out.squeeze().cpu().numpy(), self.model.config.sampling_rate)
+        rate = self.model.config.sampling_rate
+        if pitch == 1.0:
+            return pcm16_wav(self._waveform(inputs), rate)
+        if praat_available():
+            wave = self._waveform(inputs)
+            shifted = feminise(wave, rate, pitch)
+            return pcm16_wav(wave if shifted is None else shifted, rate)   # Praat failed on this clip: speak unshifted
+        pitch = min(pitch, FALLBACK_PITCH_MAX)
+        return pcm16_wav(self._waveform(inputs, speaking_rate=getattr(self.model, "speaking_rate", 1.0) / pitch),
+                         round(rate * pitch))
 
 
 class IndicEngine:
@@ -112,7 +177,7 @@ class IndicEngine:
                 tts_speakers_file=str(self.tts_spk) if self.tts_spk.exists() else None,
                 vocoder_checkpoint=str(self.voc_ckpt), vocoder_config=str(self.voc_cfg), use_cuda=self.use_cuda)
 
-    def synthesize(self, text: str) -> bytes:
+    def synthesize(self, text: str, pitch=None) -> bytes:  # pitch is not supported by this engine
         self.load()
         wav = self.synth.tts(text, speaker_name=self.speaker if self.tts_spk.exists() else None)
         return pcm16_wav(wav, self.synth.output_sample_rate)
@@ -137,6 +202,7 @@ def create_app(engine):
 
     class Req(BaseModel):
         text: str
+        pitch: float | None = None   # 1.0 = unchanged (male); higher = more feminine; see MmsEngine.synthesize
 
     @app.get("/health")
     def health():
@@ -150,7 +216,7 @@ def create_app(engine):
         t = time.perf_counter()
         try:
             with lock:
-                wav = engine.synthesize(text)
+                wav = engine.synthesize(text, req.pitch)
         except ValueError as e:
             raise HTTPException(422, str(e))
         except Exception as e:  # noqa: BLE001

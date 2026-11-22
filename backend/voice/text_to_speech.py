@@ -29,6 +29,15 @@ def clean_for_speech(text: str, max_chars: int = 600) -> str:
     return text[:max_chars]
 
 
+_LATIN_BRACKETS = re.compile(r"\s*[\(\[][A-Za-z0-9 ,.'!?;:\-]+[\)\]]")
+
+
+def strip_latin_brackets(text: str) -> str:
+    """Tamil replies sometimes carry a romanised copy in brackets, e.g. '(Vanakkam!)'. The Tamil voice cannot say
+    Latin letters, so drop those brackets before speaking."""
+    return re.sub(r"\s{2,}", " ", _LATIN_BRACKETS.sub("", text)).strip()
+
+
 class PiperTTS:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -143,7 +152,7 @@ class TTSManager:
         s = self.settings.all()
         t = time.perf_counter()
         if lang == "ta":
-            audio = self.tamil.synthesize(text)
+            audio = self.tamil.synthesize(strip_latin_brackets(text) or text, float(s.get("tamil_pitch", 1.0)))
             mode = "tamil-service"
         else:
             audio = self.piper.synthesize(text, s["piper_voice"], float(s["voice_speed"]))

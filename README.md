@@ -1,155 +1,178 @@
 # Vaani — AI Personal Voice Assistant
 
-A local, private voice assistant for Windows 11. Hold a button, speak English or Tamil, and Vaani transcribes,
-remembers, searches your documents, uses tools, and answers by voice. No paid APIs, no cloud LLM.
+A private voice assistant that runs entirely on your own Windows PC. Hold a button, speak English or Tamil, and Vaani
+transcribes, remembers, searches your documents, uses tools, opens your apps and answers aloud.
+No paid APIs and no cloud language model.
 
-**Pipeline:** Listen → Transcribe → Understand → Retrieve Memory → Think → Respond → Speak
+**Pipeline:** Listen → Transcribe → Understand → Retrieve memory → Think → Respond → Speak
+
+```mermaid
+flowchart LR
+    You([You]) -->|hold mic / type| UI[React UI]
+    UI <-->|REST + WebSocket| API[FastAPI backend]
+    API --> STT[Faster-Whisper<br/>CPU INT8, VAD]
+    API --> Agent
+    Agent --> LLM[Gemma 3 4B<br/>via Ollama]
+    Agent --> Mem[(SQLite + Qdrant<br/>memory, documents)]
+    Agent --> Router[Tool router<br/>JSON + validation]
+    Router --> Tools[Calculator, web search,<br/>file search, open apps]
+    API --> TTS[Piper English<br/>MMS-TTS Tamil]
+    TTS --> You
+```
 
 | Layer | Technology |
 |---|---|
 | UI | React + Vite, Tailwind CSS v4, Framer Motion, Lucide |
-| Backend | FastAPI, REST + WebSocket |
-| LLM | Gemma 3 4B (`gemma3:4b`) via Ollama, 4096 ctx |
-| Speech-to-text | Faster-Whisper `small`, CPU, INT8, VAD, auto language |
-| Text-to-speech | Piper (English), AI4Bharat Indic-TTS (Tamil, separate service) |
-| Storage | SQLite (chats, settings) + embedded Qdrant (memories, documents) |
-| Embeddings | all-MiniLM-L6-v2 (CPU) |
+| Backend | Python 3.12, FastAPI, REST + WebSocket |
+| LLM | Gemma 3 4B (`gemma3:4b`) through Ollama, 4096-token context |
+| Speech to text | Faster-Whisper `small`, CPU, INT8, voice-activity detection, English + Tamil |
+| Text to speech | Piper (English, in-process) · MMS-TTS Tamil (default) or AI4Bharat Indic-TTS (optional) |
+| Storage | SQLite (chats, settings) · embedded Qdrant (memories, documents) |
+| Embeddings | all-MiniLM-L6-v2 on CPU |
+| Other | PyMuPDF (PDF), PyAutoGUI (media keys, screenshots), `ddgs` (key-less web search) |
 
 ## Status: what has been verified
 
-Everything below was run by the author on the target machine (Windows 11, RTX 3050 4 GB, `gemma3:4b`).
-The full checklist, with a PASS column to fill in, is in [TESTING.md](TESTING.md).
+Everything in the left column was run by the author on the target machine (Windows 11, RTX 3050 4 GB, 24 GB RAM,
+`gemma3:4b`). The full checklist with a Result column is in [TESTING.md](TESTING.md).
 
 | Confirmed working | Not yet confirmed |
 |---|---|
-| Chat with streaming replies, history, React UI, WebSocket | Time tool, file search, folder creation |
-| Push-to-talk (button and Space key), English transcription | Delete confirmation and refusal flow (H1-H4) |
-| Tamil transcription (Whisper `small`, beam 5, language set to Tamil) | Indic-TTS engine (the optional alternative) |
-| English speech (Piper, in-process, ~0.1 s per sentence) | Long-running stability |
-| Tamil speech (MMS-TTS engine) | Performance report (section J of TESTING.md) |
-| Long-term memory: save, recall, restart, delete | |
-| Document Q&A, including "not found" and deleted files | |
-| Calculator, web search, opening apps (incl. `apps.json`) | |
+| Streaming chat, history, React UI, WebSocket reconnect | Delete confirmation and refusal flow (TESTING.md H1–H4) |
+| Push-to-talk (button and Space), English and Tamil transcription | Time tool, file search, folder creation |
+| English speech (Piper, in-process) and Tamil speech (MMS-TTS) | Indic-TTS engine (optional alternative) |
+| Long-term memory: save, recall, restart, delete | Long-running stability |
+| Document Q&A incl. "not found" and deleted files | |
+| Calculator, web search, opening apps (Start-menu import) | |
 
-Automated tests: `python -m unittest discover -s tests -t .` (67 tests, no models needed).
+Automated tests: `python -m unittest discover -s tests -t .` — no models needed except the optional Qdrant test.
 
 ## 1. Setup (Windows PowerShell)
 
-Prerequisites you already have: Python 3.12, Node, Git, Ollama with `gemma3:4b`.
+Prerequisites: Python 3.12, Node.js, Git, [Ollama](https://ollama.com/download) with `ollama pull gemma3:4b`.
 
 ```powershell
-cd "C:\Users\Nithin T\Desktop\project_new\AI-Personal-Voice-Assistant"
+cd "C:\path\to\AI-Personal-Voice-Assistant"
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+python scripts\check_env.py
 ```
 
-This creates `.venv`, installs CPU PyTorch + requirements, copies `.env`, downloads the Piper voice, and runs `npm install`.
-Whisper `small` and MiniLM download automatically from Hugging Face on first use (one-time, needs internet).
+`setup.ps1` creates `.venv`, installs CPU PyTorch and the requirements, copies `.env.example` to `.env`, downloads the
+Piper English voice and runs `npm install`. Whisper and MiniLM download from Hugging Face on first use (internet needed once).
 
 ## 2. Run
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
+powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -Tamil
 ```
 
-Or in two terminals: `scripts\start_backend.ps1` and `scripts\start_frontend.ps1`. Open http://localhost:5173.
-API docs: http://127.0.0.1:8000/docs. Backend and frontend run independently.
+Starts Ollama if needed, the backend, the Tamil voice service (`-Tamil`, optional) and the frontend, waits until each
+answers, then opens http://localhost:5173. Safe to run twice. Stop everything (Ollama keeps running) with
+`scripts\stop_all.ps1`. API docs: http://127.0.0.1:8000/docs. Run only **one** backend at a time: embedded Qdrant locks its folder.
 
-Only run **one** backend at a time: embedded Qdrant locks `data\memory`.
+Manual alternative, one terminal each: `scripts\start_backend.ps1`, `scripts\start_frontend.ps1`, `scripts\start_tamil_tts.ps1`.
 
-## 3. Test phase by phase
+## 3. Using Vaani
 
-Activate the venv first: `.\.venv\Scripts\Activate.ps1`
+- **Talk:** hold the mic button or hold **Space** (when no text box is focused), speak, release. Type if you prefer.
+- **Language:** Auto, English or தமிழ் (top right). For English-only use choose English: it is faster. For Tamil choose தமிழ் for the best transcription.
+- **Memory:** say "remember that…" or mention facts about yourself; review and delete them on the Memory page.
+- **Documents:** upload PDF, TXT or MD on the Documents page, then ask about them. If the answer is not in the files Vaani says so.
+- **Tools:** calculator, current time, web search, find files, create folders, open apps and websites, media keys.
+  Deleting always asks for confirmation (a yellow card). The Tools page can require confirmation for every desktop action.
 
-**Phase 1 — Environment + LLM.**
-`python scripts\check_env.py` then `python scripts\benchmark_llm.py` (run once with browsers/Docker open and once closed; also try `--num-ctx 2048`).
-Pass = all required checks PASS, and a tokens/sec figure for English and Tamil.
+## 4. Opening apps
 
-**Phase 2 — Backend.** Start the backend. Import `postman\Vaani.postman_collection.json` into Postman.
-Pass = *Health* shows `llm.ok: true`; *Chat* returns a reply; *Chat (calculator tool)* returns `tool: "calculator"`.
-
-**Phase 3 — Frontend.** Open the UI, type a message. Pass = tokens stream in, sidebar dot is green, history lists the chat.
-
-**Phase 4 — Voice.**
-1. Settings → pick your microphone. Hold the mic button (or Space), speak, release.
-2. Pass = your words appear as a message, Vaani answers and speaks.
-3. Tamil: set language to தமிழ் (or Auto) and speak Tamil. Tamil speech output needs section 5; without it you get text only.
-
-**Phase 5 — Memory.** Say "Remember that my favourite colour is green." Check the Memory page; restart the backend; ask "What's my favourite colour?"
-Pass = memory persists and is used.
-
-**Phase 6 — Documents.** Upload a PDF, ask something in it, then ask something not in it.
-Pass = it answers from the file, and says it could not find the second.
-
-**Phase 7 — Tools.** "What's 15% of 2480", "what time is it", "search the web for …", "open notepad", "create a folder called test".
-Then "delete C:\Users\Nithin T\Desktop\test" — Pass = a confirmation card appears and nothing is deleted until you approve.
-
-**Phase 8 — Performance.** Use the assistant for a while, then `python scripts\log_report.py` (latency per stage from the log) and
-`python scripts\resource_report.py --seconds 90` (RAM / VRAM while you use it). `python scripts\benchmark_pipeline.py` runs a fixed set of text prompts. Timings also appear under each reply.
-
-Unit tests (no models needed): `python -m unittest tests.test_core tests.test_tools tests.test_memory -v`
-Full-stack vector test (after install): `python -m unittest tests.test_integration -v`
-
-## 4. Piper voice (English)
-
-`setup.ps1` runs this for you. If it failed, do it manually:
+Vaani opens only apps on an allow-list, never an arbitrary command. A short built-in list exists (Notepad, Chrome, …).
+To add your installed apps:
 
 ```powershell
-cd data\models\piper
-..\..\..\.venv\Scripts\python.exe -m piper.download_voices en_US-lessac-medium
+powershell -ExecutionPolicy Bypass -File scripts\import_start_apps.ps1 -DryRun   # preview, writes nothing
+powershell -ExecutionPolicy Bypass -File scripts\import_start_apps.ps1           # write data\apps.json
 ```
 
-You need `en_US-lessac-medium.onnx` and its `.onnx.json` in `data\models\piper`. If `python -m piper` does not work on your machine,
-download `piper.exe` from the Piper releases page and set `VAANI_PIPER_EXE=C:\path\to\piper.exe` in `.env`.
-Other voices: drop their files in the same folder; they appear in Settings.
+- The spoken name is the Start-menu name: "open docker", "open sticky notes", "open Power BI".
+- Matching is forgiving but never guesses: if several different apps fit, Vaani says "Did you mean…".
+- The importer skips uninstallers, backup/restore/database start-stop shortcuts, remote-access tools, system-state tools
+  (registry editor, disk cleanup, …) and documentation links. Edit the `$risky` / `$noise` lines in the script to change that.
+- Add one app by hand in `data\apps.json` (`"name": "AppID or exe or path"`); find AppIDs with `Get-StartApps`.
+  Values may contain only letters, digits, spaces and `. : \ / ( ) { } ! _ -`; anything else is ignored.
 
-## 5. Tamil speech output (optional)
+## 5. Tamil speech
 
-Tamil replies are always shown as text. To also hear them, start the small Tamil voice service (port 8010):
+Tamil replies always show as text. To hear them, run the Tamil voice service (`start_all.ps1 -Tamil`):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\start_tamil_tts.ps1
-```
+- **Default engine: MMS-TTS Tamil** (`facebook/mms-tts-tam`, CC-BY-NC 4.0, non-commercial). Runs on CPU in the main `.venv`; the
+  model downloads on first start. Digits and Latin letters inside Tamil sentences are not spoken.
+- **AI4Bharat Indic-TTS** is still supported (`$env:TAMIL_TTS_ENGINE = "indic"`, separate `.venv-tamil`) but follows a Linux/conda
+  setup and is **not verified on Windows**.
+- **Female voice:** MMS has one male-sounding voice, so Vaani converts it with Praat's "Change gender" (pitch and formants together).
+  Settings → *Tamil voice pitch* controls it: 1.00 is the original male voice, the default 1.50 is more feminine, and the **Test** button plays a sample.
+  It needs `pip install praat-parselmouth` (listed in `requirements.txt`); without it a cruder fallback is used, capped at 1.3×.
+  This is voice processing, not a true female neural voice. A native female Tamil voice (for example Indic Parler-TTS) would need a much
+  larger model, which is probably too slow on this hardware (not measured).
+- Service off? Vaani falls back to text within about 2 seconds.
 
-- **Default engine: MMS-TTS Tamil** (Meta, `facebook/mms-tts-tam`). It runs on CPU inside the main `.venv` with packages you
-  already have, so there is nothing to install. The model (a small download) is fetched from Hugging Face on first start.
-  Its license is CC-BY-NC 4.0 (non-commercial), which is fine for personal and portfolio use.
-- **AI4Bharat Indic-TTS** (the originally specified engine) is still supported: `$env:TAMIL_TTS_ENGINE = "indic"` before starting,
-  from a separate `.venv-tamil`. It follows a Linux/conda setup with an old Coqui fork and is **not verified on Windows**.
-- Digits and Latin letters inside Tamil sentences are not spoken by MMS; write numbers as words if that matters.
-- Settings -> System status shows "Tamil voice: running" when the service is up. If it is off, Vaani falls back to text only.
+## 6. Performance (measured on the author's PC, 2026-11-13)
 
-## 6. How it fits a 4 GB GPU
+Windows 11, RTX 3050 Laptop 4 GB, 24 GB RAM, `gemma3:4b`, context 4096. Re-create the table with
+`python scripts\log_report.py --markdown` and `python scripts\resource_report.py --seconds 90`.
 
-- Only Gemma (via Ollama) uses the GPU; Ollama splits layers between GPU and CPU automatically.
-- Whisper, MiniLM, Piper and Tamil TTS run on CPU.
-- Tune in Settings: context window, max reply length, GPU layers. Fallback model: `ollama pull gemma3:1b`, then choose it in Settings.
-- Memory/document retrieval and the tool-router add small amounts of prompt; history is trimmed to fit the context budget.
+| Measurement | Result |
+|---|---|
+| Text generation | about 20 tokens/s (p95 22) |
+| Time to first word, typical text question | about 1.1–1.6 s (a question with 3 document excerpts: about 2.1 s) |
+| English speech synthesis (Piper) | median 0.13 s per sentence |
+| Tamil speech synthesis (MMS-TTS) | about 1.8 s per sentence (small sample) |
+| Speech recognition (before the English-beam tuning) | median 3.0 s per utterance (English 3.1, Tamil 2.6) |
+| Mic release to first spoken word (English) | about 4.7 s + about 1 s while the first sentence is written |
+| Tool request (router + tool) | about 2.3 s extra |
+| Gemma placement | 44% on the GPU (1.5 of 3.3 GB), the rest on the CPU |
+| GPU memory in use | 3.6–3.7 of 4.1 GB (other apps hold part of it) |
+| RAM used by Vaani | Ollama 3.3 GB, backend 0.7 GB, Tamil service 0.2 GB, frontend 0.1 GB |
+
+Tuning knobs (Settings page or `.env`): context window, max reply length, Whisper model, `VAANI_WHISPER_BEAM` (Tamil/Auto),
+`VAANI_WHISPER_BEAM_EN` (English), `VAANI_WHISPER_THREADS`. Closing other GPU-hungry apps lets more of Gemma run on the GPU.
 
 ## 7. Safety
 
 - Tools are a fixed allow-list; the model can only choose a tool name and fill declared arguments, which are validated.
-- Deleting always requires your approval. "Confirm every desktop action" (Tools page) extends that to opening apps, sites, folders, and key presses.
-- File tools are confined to your user folder; only single files or empty folders can be deleted; top-level folders are protected.
-- Apps open only from an allow-list (`backend/tools/desktop_control.py`); URLs must be http(s).
-- Everything stays on your machine, except web search, which sends your query to a search engine.
+- Deleting always requires approval. Only single files or empty folders can be deleted, only inside your user folder;
+  top-level folders are protected.
+- Desktop actions (open app, folder, website, key) reply with the tool's own text, so a language model can never misreport
+  what happened.
+- Apps open only from the allow-list; websites must be http(s). Nothing runs a user-supplied command line.
+- Everything stays on your PC, except web search, which sends your query to a search engine.
 
-## 8. Known limitations
+## 8. Troubleshooting
 
-- MiniLM is an English-focused embedding model, so Tamil memory/document retrieval is weaker. Auto-saved memories are written in English to help.
-- "Live transcription" appears as soon as you release the button (Whisper is not streamed in this version).
+| Symptom | Fix |
+|---|---|
+| `Ollama returned 500 … llama-server.exe … corrupted` | Reinstall Ollama (uninstall, delete `%LOCALAPPDATA%\Programs\Ollama`, install). Your models in `%USERPROFILE%\.ollama` stay. |
+| "Cannot reach Ollama" | Start Ollama (`ollama serve`) or use `start_all.ps1`. |
+| Backend will not start: Qdrant "already accessed" | A second backend is running. Run `scripts\stop_all.ps1`. |
+| Tamil words slightly wrong | Set the language to தமிழ், keep `VAANI_WHISPER_BEAM=5`; try Whisper `medium` in Settings (slower). |
+| First reply after a start is slow | Models are still loading; wait about 10 s after "startup complete". |
+| No spoken reply | Settings → System status shows the Piper / Tamil voice state. |
+| An app will not open | Check the name in the refusal message; add it to `data\apps.json`. |
+
+## 9. Known limitations
+
+- MiniLM is English-focused, so Tamil memory and document retrieval is weaker. Automatic memories are stored in English to help.
+- Transcription appears when you release the button (Whisper is not streamed). Push-to-talk only; no wake word.
 - Scanned PDFs need OCR, which is not included.
-- Each Piper sentence starts a short subprocess (~1 s overhead). Fine for v1; a persistent Piper worker is a later optimisation.
-- Push-to-talk only. No wake word or continuous listening, as specified.
-- The auto-memory extractor uses Gemma itself and can occasionally miss or over-save facts; review them on the Memory page.
+- Gemma 3 4B can still make mistakes or over-trust search results on borderline questions. Review automatic memories on the Memory page.
+- Tool and action replies are in English even when you speak Tamil.
+- Only 44% of the model fits the 4 GB GPU, so speech recognition and the first word dominate the wait.
 
-## 9. Project layout
+## 10. Project layout
 
 ```
-backend/   api/ brain/ voice/ memory/ documents/ tools/ core/   FastAPI app (run: uvicorn backend.main:app)
-frontend/  src/{components,pages,hooks,services}                React + Vite UI
-services/tamil_tts/                                             optional Tamil TTS service (own venv)
-scripts/   setup, start, check_env, benchmarks
-tests/     unit + integration tests          postman/  API collection
-data/      database, qdrant memory, documents, models, logs (git-ignored)
+backend/   api/ brain/ voice/ memory/ documents/ tools/ core/    FastAPI app (uvicorn backend.main:app)
+frontend/  src/{components,pages,hooks,services}                 React + Vite UI
+services/tamil_tts/                                              optional Tamil voice service
+scripts/   setup, start_all/stop_all, import_start_apps, check_env, benchmarks, log_report, resource_report
+tests/     unit + integration tests         postman/   API collection
+data/      database, qdrant memory, documents, models, logs, apps.json (git-ignored)
 ```
-Logs: `data\logs\vaani.log`. Config: `.env` (see `.env.example`) and the Settings page.
+Logs: `data\logs\vaani.log`. Config: `.env` ([.env.example](.env.example)) and the Settings page.

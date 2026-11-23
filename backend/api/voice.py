@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.services import get_services
-from backend.voice.audio_handler import list_input_devices
+from backend.voice.audio_handler import list_input_devices, wav_bytes_to_audio
 from backend.voice.tamil_tts import TTSUnavailable
 
 router = APIRouter(prefix="/api", tags=["voice"])
@@ -49,7 +49,15 @@ async def transcribe(file: UploadFile = File(...), language: str | None = Form(N
     s = get_services()
     data = await file.read()
     lang = language if language in ("en", "ta") else None
+    # Plain WAV files are decoded here, so they reach Whisper exactly like microphone audio. Other formats need PyAV.
+    audio = wav_bytes_to_audio(data)
+    source = audio if audio is not None else io.BytesIO(data)
     try:
-        return await asyncio.to_thread(s.stt.transcribe, io.BytesIO(data), s.settings.get("whisper_model"), lang)
+        return await asyncio.to_thread(s.stt.transcribe, source, s.settings.get("whisper_model"), lang)
+    except TypeError as e:
+        if "metadata_errors" in str(e):
+            raise HTTPException(415, "Decoding this audio format needs PyAV, and the installed PyAV version is "
+                                     "incompatible with faster-whisper. Upload a 16-bit PCM WAV file instead.")
+        raise HTTPException(500, f"Transcription failed: {type(e).__name__}: {e}")
     except Exception as e:  # noqa: BLE001
         raise HTTPException(500, f"Transcription failed: {type(e).__name__}: {e}")

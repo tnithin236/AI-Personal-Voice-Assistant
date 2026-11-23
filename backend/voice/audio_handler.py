@@ -1,6 +1,8 @@
 """Microphone capture (push-to-talk) with sounddevice. Output: float32 mono, 16 kHz."""
+import io
 import logging
 import threading
+import wave
 
 import numpy as np
 
@@ -29,6 +31,23 @@ def resample(audio: np.ndarray, sr: int, target: int = TARGET_SR) -> np.ndarray:
         return audio
     n = int(round(audio.size * target / sr))
     return np.interp(np.linspace(0, audio.size - 1, n), np.arange(audio.size), audio).astype(np.float32)
+
+
+def wav_bytes_to_audio(data: bytes):
+    """16-bit PCM WAV bytes -> float32 mono 16 kHz array, the same form the microphone path gives Whisper.
+    Returns None if the bytes are not a plain 16-bit PCM WAV (the caller can then try another decoder)."""
+    try:
+        with wave.open(io.BytesIO(data), "rb") as w:
+            if w.getsampwidth() != 2:
+                return None
+            channels, rate = w.getnchannels(), w.getframerate()
+            raw = w.readframes(w.getnframes())
+    except (wave.Error, EOFError):
+        return None
+    audio = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+    if channels > 1:
+        audio = audio[: audio.size - audio.size % channels].reshape(-1, channels).mean(axis=1)
+    return resample(audio, rate)
 
 
 class Recorder:

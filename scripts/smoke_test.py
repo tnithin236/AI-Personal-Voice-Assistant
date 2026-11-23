@@ -125,7 +125,7 @@ def c_stt(ctx):
     d = ok_json(ctx["api"].post("/transcribe", files={"file": ("tone.wav", tone_wav(), "audio/wav")},
                                 data={"language": "en"}), "transcribe")
     assert "text" in d, d
-    return "ran on a test tone (an empty transcript is correct)"
+    return "Whisper ran on a test tone, the same path as the microphone (an empty transcript is correct)"
 
 
 # ---------------------------------------------------------------- safety

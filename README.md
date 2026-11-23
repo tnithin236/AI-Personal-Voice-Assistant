@@ -46,6 +46,8 @@ Everything in the left column was run by the author on the target machine (Windo
 | Calculator, web search, opening apps (Start-menu import) | |
 
 Automated tests: `python -m unittest discover -s tests -t .` — no models needed except the optional Qdrant test.
+Live check of the running system (chat, memory, documents, both voices, speech recognition and the delete-confirmation flow):
+`python scripts\smoke_test.py`. A demo walkthrough is in [DEMO.md](DEMO.md).
 
 ## 1. Setup (Windows PowerShell)
 

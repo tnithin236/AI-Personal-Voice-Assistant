@@ -9,6 +9,7 @@ Always start the test in a **New** conversation. Machine: Windows 11, 24 GB RAM,
 | A1 | `python scripts\check_env.py` | all required checks pass | |
 | A2 | `python -m unittest discover -s tests -t .` | `OK` | |
 | A3 | `ollama run gemma3:4b "hi"` | normal reply | |
+| A4 | Start everything, then `python scripts\smoke_test.py` | all PASS (Tamil may SKIP); covers H1, H2 and the confirmation rules through the API | |
 
 ## B. Text chat
 | # | Test | Expected | Result |

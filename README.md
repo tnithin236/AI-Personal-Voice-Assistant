@@ -38,12 +38,15 @@ Everything in the left column was run by the author on the target machine (Windo
 
 | Confirmed working | Not yet confirmed |
 |---|---|
-| Streaming chat, history, React UI, WebSocket reconnect | Delete confirmation and refusal flow (TESTING.md H1–H4) |
-| Push-to-talk (button and Space), English and Tamil transcription | Time tool, file search, folder creation |
-| English speech (Piper, in-process) and Tamil speech (MMS-TTS) | Indic-TTS engine (optional alternative) |
-| Long-term memory: save, recall, restart, delete | Long-running stability |
+| Streaming chat, history, React UI, WebSocket reconnect | The yellow confirmation card in the browser (the API flow behind it is verified) |
+| Push-to-talk (button and Space), English and Tamil transcription | Time tool, file search and folder creation by voice |
+| English speech (Piper, in-process) | Indic-TTS engine (optional alternative) |
+| Tamil speech (MMS-TTS) with Praat voice conversion and adjustable pitch | Long-running stability |
+| Long-term memory: save, recall, restart, delete | |
 | Document Q&A incl. "not found" and deleted files | |
 | Calculator, web search, opening apps (Start-menu import) | |
+| Delete safety, checked through the API by the live smoke test: a delete asks first, Deny keeps the folder, Approve deletes it, confirmations work once only, the Desktop and Windows files ask first, unlisted apps and `javascript:` links are refused | |
+| One-command launcher (`start_all.ps1`, `stop_all.ps1`) | |
 
 Automated tests: `python -m unittest discover -s tests -t .` — no models needed except the optional Qdrant test.
 Live check of the running system (chat, memory, documents, both voices, speech recognition and the delete-confirmation flow):
